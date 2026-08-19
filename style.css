@@ -140,14 +140,105 @@
     margin:0 clamp(10px,2vw,24px) clamp(8px,1vw,12px);min-height:0;
   }
   .map-viewport.grabbing{cursor:grabbing;}
-  .map-surface{position:absolute;top:50%;left:50%;transform-origin:center;will-change:transform;}
+  .map-surface{
+    position:absolute;top:50%;left:50%;
+    transform-origin:center;will-change:transform;
+    display:inline-block;
+  }
   .map-surface img{display:block;max-width:none;width:900px;border-radius:4px;}
   .map-hint{
     position:absolute;bottom:10px;left:10px;
     background:rgba(32,30,31,.82);color:#EFE8DC;
     font-family:'IBM Plex Mono',monospace;font-size:10px;
-    padding:5px 9px;border-radius:7px;pointer-events:none;
+    padding:5px 9px;border-radius:7px;pointer-events:none;z-index:5;
   }
+
+  /* ===== Map Markers & Pins ===== */
+  .map-markers{
+    position:absolute;inset:0;pointer-events:none;
+  }
+  .map-pin{
+    position:absolute;transform:translate(-50%,-100%);
+    display:flex;flex-direction:column;align-items:center;
+    cursor:pointer;z-index:20;pointer-events:auto;
+    transition:transform .2s ease;
+  }
+  .map-pin:hover{
+    transform:translate(-50%,-105%) scale(1.08);
+  }
+  .map-pin-pulse{
+    position:absolute;bottom:0;left:50%;transform:translate(-50%,50%);
+    width:34px;height:34px;border-radius:50%;
+    background:var(--glow-color, rgba(223,110,55,.4));
+    animation:pinPulse 1.8s infinite ease-out;
+    pointer-events:none;
+  }
+  @keyframes pinPulse{
+    0%{transform:translate(-50%,50%) scale(0.2);opacity:1;}
+    100%{transform:translate(-50%,50%) scale(2.4);opacity:0;}
+  }
+  .map-pin-bubble{
+    background:var(--pin-color, var(--orange));color:#fff;
+    padding:6px 12px;border-radius:10px;font-family:'Kanit',sans-serif;
+    font-weight:600;font-size:12.5px;white-space:nowrap;
+    box-shadow:0 6px 18px rgba(0,0,0,.28);
+    display:flex;align-items:center;gap:6px;
+    animation:pinDrop .4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+  .pin-code{
+    font-family:'IBM Plex Mono',monospace;font-size:11px;
+    background:rgba(0,0,0,.22);padding:1px 5px;border-radius:4px;
+  }
+  .pin-name{font-size:12.5px;}
+  .map-pin-arrow{
+    width:0;height:0;
+    border-left:6px solid transparent;border-right:6px solid transparent;
+    border-top:8px solid var(--pin-color, var(--orange));
+    margin-top:-1px;
+    filter:drop-shadow(0 2px 2px rgba(0,0,0,.2));
+  }
+  @keyframes pinDrop{
+    0%{transform:translateY(-24px);opacity:0;}
+    100%{transform:translateY(0);opacity:1;}
+  }
+
+  /* ===== Room Info Card (Banner on bottom-left of map) ===== */
+  .room-info-card{
+    position:absolute;bottom:14px;left:14px;
+    max-width:min(440px, calc(100% - 100px));
+    background:rgba(255,255,255,.96);border:1.5px solid var(--line);
+    border-radius:14px;box-shadow:0 12px 28px rgba(32,30,31,.18);
+    padding:10px 14px;display:flex;align-items:center;justify-content:space-between;
+    gap:12px;z-index:12;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+    transform:translateY(80px);opacity:0;pointer-events:none;
+    transition:transform .3s cubic-bezier(0.16, 1, 0.3, 1), opacity .3s ease;
+  }
+  .room-info-card.show{
+    transform:translateY(0);opacity:1;pointer-events:auto;
+  }
+  .ric-left{min-width:0;}
+  .ric-badge{
+    display:inline-flex;align-items:center;gap:4px;
+    padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;
+    margin-bottom:3px;
+  }
+  .ric-title{font-family:'Kanit',sans-serif;font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .ric-sub{font-size:11.5px;color:var(--slate);}
+  .ric-actions{display:flex;align-items:center;gap:6px;flex:0 0 auto;}
+  .ric-btn{
+    display:flex;align-items:center;gap:4px;
+    padding:6px 10px;border-radius:8px;font-size:12px;font-weight:600;
+    transition:all .15s;
+  }
+  .ric-btn.focus{
+    background:var(--orange);color:#fff;
+  }
+  .ric-btn.focus:hover{opacity:.9;}
+  .ric-btn.close{
+    background:var(--paper);color:var(--slate);width:30px;height:30px;
+    padding:0;justify-content:center;border-radius:8px;
+  }
+  .ric-btn.close:hover{background:var(--ink);color:#fff;}
 
   /* Floating zoom controls */
   .zoom-controls{
@@ -323,10 +414,12 @@
     .filter-toggle{width:32px;height:32px;}
     .map-viewport{margin:0 8px 6px;border-radius:10px;}
     .map-surface img{width:420px;}
+    .room-info-card{bottom:8px;left:8px;padding:8px 10px;max-width:calc(100% - 70px);}
+    .ric-title{font-size:13px;}
     .zoom-controls{bottom:8px;right:8px;gap:4px;}
     .zbtn{width:38px;height:38px;font-size:18px;border-radius:9px;}
     .zbtn-reset{padding:0 10px;font-size:10px;}
-    .map-hint{font-size:9px;padding:4px 7px;bottom:8px;left:8px;}
+    .map-hint{display:none;}
     .floor-switcher{gap:4px;padding:5px 8px;}
     .contact-strip{padding:6px 10px 8px;}
     .contact-item .ic{width:26px;height:26px;border-radius:6px;}
@@ -343,7 +436,7 @@
     .floor-switcher .floor-btn{padding:0 8px;font-size:12px;}
   }
 
-  /* Landscape orientation on phone — give more space to map */
+  /* Landscape orientation on phone */
   @media (max-height:500px) and (orientation:landscape){
     .topbar{height:44px;}
     .brand .mark{width:28px;height:28px;}

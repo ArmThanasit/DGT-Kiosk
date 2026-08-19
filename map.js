@@ -1,6 +1,6 @@
 /* =========================================================
    map.js
-   Floor maps, pan/zoom, floor navigation, QR, clock, idle timer
+   Floor maps, pan/zoom, room markers & pins, QR, clock, idle timer
    ========================================================= */
 
   /* ================= Configuration ================= */
@@ -20,10 +20,12 @@
   /* ================= Pan & zoom ================= */
   var viewport = document.getElementById("mapViewport");
   var surface = document.getElementById("mapSurface");
+  var markersContainer = document.getElementById("mapMarkers");
   var scale = 1, minScale = 0.15, maxScale = 4;
   var panX = 0, panY = 0;
   var dragging = false, lastX = 0, lastY = 0;
   var pinchStartDist = null, pinchStartScale = 1;
+  var activePinnedRoom = null;
 
   function applyTransform(){
     surface.style.transform = "translate(-50%,-50%) translate("+panX+"px,"+panY+"px) scale("+scale+")";
@@ -44,8 +46,37 @@
     applyTransform();
   }
 
+  /* Focus & Pan to specific room coordinate */
+  function focusOnCoordinate(xPercent, yPercent, targetScale){
+    var imgEl = document.getElementById("mapImage");
+    var cssWidth = parseInt(getComputedStyle(imgEl).width,10) || 900;
+    var renderW = cssWidth;
+    var renderH = imgEl.naturalHeight
+      ? (cssWidth * imgEl.naturalHeight / imgEl.naturalWidth)
+      : (cssWidth * 0.65);
+
+    scale = targetScale || 1.35;
+    /* (xPercent, yPercent) relative to center of image */
+    var offsetX = (xPercent / 100 - 0.5) * renderW;
+    var offsetY = (yPercent / 100 - 0.5) * renderH;
+
+    panX = -offsetX * scale;
+    panY = -offsetY * scale;
+
+    surface.style.transition = "transform .4s cubic-bezier(0.16, 1, 0.3, 1)";
+    applyTransform();
+    setTimeout(function(){ surface.style.transition = ""; }, 420);
+  }
+
   /* Mouse events */
-  viewport.addEventListener("mousedown", function(e){ dragging=true; lastX=e.clientX; lastY=e.clientY; viewport.classList.add("grabbing"); });
+  viewport.addEventListener("mousedown", function(e){
+    /* Check for calibration mode (Ctrl/Alt click) */
+    if(e.altKey || e.ctrlKey){
+      calibrateClick(e);
+      return;
+    }
+    dragging=true; lastX=e.clientX; lastY=e.clientY; viewport.classList.add("grabbing");
+  });
   window.addEventListener("mouseup", function(){ dragging=false; viewport.classList.remove("grabbing"); });
   window.addEventListener("mousemove", function(e){
     if(!dragging) return;
@@ -89,7 +120,106 @@
   /* Zoom buttons */
   document.getElementById("zoomIn").addEventListener("click", function(){ scale=Math.min(maxScale,scale+0.25); applyTransform(); });
   document.getElementById("zoomOut").addEventListener("click", function(){ scale=Math.max(minScale,scale-0.25); applyTransform(); });
-  document.getElementById("zoomReset").addEventListener("click", resetView);
+  document.getElementById("zoomReset").addEventListener("click", function(){
+    resetView();
+  });
+
+  /* ================= Calibration Helper (Alt+Click on Map) ================= */
+  function calibrateClick(e){
+    var imgEl = document.getElementById("mapImage");
+    var rect = imgEl.getBoundingClientRect();
+    var clickX = e.clientX - rect.left;
+    var clickY = e.clientY - rect.top;
+    var xPct = Math.max(0, Math.min(100, (clickX / rect.width) * 100)).toFixed(1);
+    var yPct = Math.max(0, Math.min(100, (clickY / rect.height) * 100)).toFixed(1);
+    var coordStr = "{ x: " + xPct + ", y: " + yPct + " }";
+    console.log("📍 [Map Coordinate]", coordStr);
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(coordStr);
+    }
+  }
+
+  /* ================= Room Highlighting & Pins ================= */
+  var roomInfoCard = document.getElementById("roomInfoCard");
+  var ricTitle = document.getElementById("ricTitle");
+  var ricSub = document.getElementById("ricSub");
+  var ricBadge = document.getElementById("ricBadge");
+  var ricCatIcon = document.getElementById("ricCatIcon");
+  var ricCatName = document.getElementById("ricCatName");
+  var ricFocusBtn = document.getElementById("ricFocusBtn");
+  var ricCloseBtn = document.getElementById("ricCloseBtn");
+
+  function clearRoomHighlight(){
+    activePinnedRoom = null;
+    if(markersContainer) markersContainer.innerHTML = "";
+    if(roomInfoCard) roomInfoCard.classList.remove("show");
+  }
+
+  function highlightRoomOnMap(room){
+    if(!room) return;
+    activePinnedRoom = room;
+    if(markersContainer) markersContainer.innerHTML = "";
+
+    var x = typeof room.x === "number" ? room.x : 50;
+    var y = typeof room.y === "number" ? room.y : 50;
+    var catInfo = categories[room.cat] || { color: "#DF6E37", th: "ห้อง", en: "Room", svg: "pin" };
+    var catColor = catInfo.color || "#DF6E37";
+
+    /* Create animated Pin element */
+    var pin = document.createElement("div");
+    pin.className = "map-pin";
+    pin.style.left = x + "%";
+    pin.style.top = y + "%";
+    pin.style.setProperty("--pin-color", catColor);
+    pin.style.setProperty("--glow-color", catColor + "66");
+
+    pin.innerHTML =
+      '<div class="map-pin-pulse"></div>' +
+      '<div class="map-pin-bubble">' +
+        (room.code ? '<span class="pin-code">' + room.code + '</span>' : '') +
+        '<span class="pin-name">' + room.name + '</span>' +
+      '</div>' +
+      '<div class="map-pin-arrow"></div>';
+
+    pin.addEventListener("click", function(e){
+      e.stopPropagation();
+      focusOnCoordinate(x, y, 1.4);
+      if(roomInfoCard) roomInfoCard.classList.add("show");
+    });
+
+    markersContainer.appendChild(pin);
+
+    /* Update Room Info Card */
+    if(roomInfoCard){
+      ricTitle.textContent = (room.code ? room.code + " — " : "") + room.name;
+      ricSub.textContent = (lang === "th" ? floors[currentFloor].th : floors[currentFloor].en) + " · " + (lang === "th" ? "อาคารรัฐสีมาคุณากร" : "Rat Sima Khunakon Building");
+      ricBadge.style.backgroundColor = catColor + "1a";
+      ricBadge.style.color = catColor;
+      ricCatIcon.innerHTML = catIcon(room.cat);
+      ricCatName.textContent = catInfo[lang] || catInfo.th;
+      roomInfoCard.classList.add("show");
+    }
+
+    /* Pan and zoom to room position */
+    setTimeout(function(){
+      focusOnCoordinate(x, y, 1.35);
+    }, 100);
+  }
+
+  if(ricFocusBtn){
+    ricFocusBtn.addEventListener("click", function(){
+      if(activePinnedRoom){
+        focusOnCoordinate(activePinnedRoom.x || 50, activePinnedRoom.y || 50, 1.4);
+      }
+    });
+  }
+
+  if(ricCloseBtn){
+    ricCloseBtn.addEventListener("click", function(){
+      clearRoomHighlight();
+      resetView();
+    });
+  }
 
   /* ================= Floor navigation ================= */
   var currentFloor = 1;
@@ -100,20 +230,31 @@
     });
   }
 
-  function openFloor(n){
+  function openFloor(n, targetRoom){
     currentFloor = n;
     var f = floors[n];
     document.getElementById("floorNum").textContent = String(n).padStart(2,"0");
     document.getElementById("floorName").textContent = lang==="th"?f.th:f.en;
 
+    clearRoomHighlight();
+
     var imgEl = document.getElementById("mapImage");
-    imgEl.onload = function(){ resetView(); };
+    imgEl.onload = function(){
+      resetView();
+      if(targetRoom){
+        highlightRoomOnMap(targetRoom);
+      }
+    };
     imgEl.src = floorImages[n];
     imgEl.alt = (lang==="th"?f.th:f.en) + " — " + (lang==="th"?"แผนผังอาคารรัฐสีมาคุณากร":"Rat Sima Khunakon Building floor plan");
 
     resetView();
     setActiveFloorBtn(n);
     updateQR();
+
+    if(targetRoom && imgEl.complete){
+      highlightRoomOnMap(targetRoom);
+    }
   }
 
   document.querySelectorAll(".floor-btn[data-floor]").forEach(function(btn){
@@ -126,7 +267,9 @@
   var resizeTimer;
   window.addEventListener("resize", function(){
     clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(resetView, 120);
+    resizeTimer = setTimeout(function(){
+      if(!activePinnedRoom) resetView();
+    }, 120);
   });
 
   /* Listen to hash changes (for mobile / URL direct access) */
@@ -226,13 +369,18 @@
     idleTimer = setTimeout(showIdleToast, IDLE_MS);
   }
   function showIdleToast(){
-    if(currentFloor === 1){ armIdle(); return; }
+    if(currentFloor === 1 && !activePinnedRoom){ armIdle(); return; }
     var n = COUNTDOWN;
     setIdleMessage(n);
     document.getElementById("idleToast").classList.add("show");
     countdownTimer = setInterval(function(){
       n -= 1; setIdleMessage(Math.max(n,0));
-      if(n<=0){ clearInterval(countdownTimer); hideIdleToast(); openFloor(1); }
+      if(n<=0){
+        clearInterval(countdownTimer);
+        hideIdleToast();
+        clearRoomHighlight();
+        openFloor(1);
+      }
     }, 1000);
   }
   function hideIdleToast(){
