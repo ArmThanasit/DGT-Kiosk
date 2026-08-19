@@ -115,6 +115,18 @@
     return Math.sqrt(dx*dx+dy*dy);
   }
 
+  /* Isolate touch events inside popups so iOS scrolling is 100% native and never blocked */
+  var fpEl = document.getElementById("filterPopup");
+  if(fpEl){
+    fpEl.addEventListener("touchstart", function(e){ e.stopPropagation(); }, {passive:true});
+    fpEl.addEventListener("touchmove", function(e){ e.stopPropagation(); }, {passive:true});
+  }
+  var srEl = document.getElementById("globalResults");
+  if(srEl){
+    srEl.addEventListener("touchstart", function(e){ e.stopPropagation(); }, {passive:true});
+    srEl.addEventListener("touchmove", function(e){ e.stopPropagation(); }, {passive:true});
+  }
+
   /* Zoom buttons */
   document.getElementById("zoomIn").addEventListener("click", function(){ scale=Math.min(maxScale,scale+0.25); applyTransform(); });
   document.getElementById("zoomOut").addEventListener("click", function(){ scale=Math.max(minScale,scale-0.25); applyTransform(); });
