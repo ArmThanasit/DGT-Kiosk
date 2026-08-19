@@ -101,13 +101,15 @@
     display:flex;align-items:center;justify-content:center;border:1.5px solid #fff;
   }
 
-  /* ===== Persistent Filter Popup ===== */
+  /* ===== Persistent Filter Popup (Mobile-optimized scroll) ===== */
   .filter-popup{
     position:absolute;left:0;right:0;top:calc(100% + 8px);
     background:#ffffff;border:1.5px solid var(--line);
     border-radius:18px;box-shadow:0 20px 48px rgba(32,30,31,.22);
-    max-height:min(480px, 70vh);display:none;flex-direction:column;
-    z-index:40;overflow:hidden;
+    max-height:calc(100vh - 130px);
+    max-height:calc(100dvh - 130px);
+    display:none;flex-direction:column;
+    z-index:45;overflow:hidden;
   }
   .filter-popup.show{display:flex;}
 
@@ -129,8 +131,10 @@
 
   /* Category chips inside popup */
   .fp-chips{
-    display:flex;flex-wrap:wrap;gap:7px;padding:12px 14px;
-    flex:0 0 auto;max-height:160px;overflow-y:auto;background:#fff;
+    display:flex;flex-wrap:wrap;gap:7px;padding:10px 14px;
+    flex:0 0 auto;max-height:135px;overflow-y:auto;
+    -webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y;
+    background:#fff;
   }
   .fp-chip{
     border:1.5px solid var(--line);background:#fff;border-radius:999px;
@@ -147,14 +151,18 @@
   .cat-ic{width:14px;height:14px;stroke-width:2;vertical-align:-2px;flex-shrink:0;}
   .fp-chip.is-active .cat-ic{color:#fff !important;}
 
-  .fp-divider{height:1px;background:var(--line);margin:0 14px;}
+  .fp-divider{height:1px;background:var(--line);margin:0 14px;flex:0 0 auto;}
 
   .fp-rooms-header{
     padding:8px 16px 4px;font-size:12px;font-weight:700;color:var(--slate);
     font-family:'Kanit',sans-serif;letter-spacing:.02em;background:#fff;
+    flex:0 0 auto;
   }
   .fp-rooms-list{
-    flex:1 1 auto;overflow-y:auto;padding:4px 10px 12px;background:#fff;
+    flex:1 1 auto;min-height:100px;overflow-y:auto;
+    -webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y;
+    padding:4px 10px 36px;
+    background:#fff;
   }
   .fp-room-item{
     display:flex;align-items:center;gap:12px;padding:9px 12px;
@@ -176,14 +184,17 @@
   .fp-room-info .cat{font-size:11.5px;color:var(--slate);margin-top:1px;display:flex;align-items:center;gap:4px;}
   .fp-room-go{color:var(--orange);font-size:14px;font-weight:700;opacity:0;transition:opacity .15s;}
   .fp-room-item:hover .fp-room-go{opacity:1;}
-  .fp-empty{padding:20px;font-size:13px;color:var(--slate);text-align:center;}
+  .fp-empty{padding:24px;font-size:13px;color:var(--slate);text-align:center;}
 
   /* Global search dropdown */
   .search-results{
     position:absolute;left:0;right:0;top:calc(100% + 6px);
     background:#fff;border:1.5px solid var(--line);
     border-radius:16px;box-shadow:0 18px 36px rgba(32,30,31,.16);
-    max-height:min(380px,55vh);overflow-y:auto;
+    max-height:calc(100vh - 130px);
+    max-height:calc(100dvh - 130px);
+    overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y;
+    padding-bottom:32px;
     display:none;z-index:35;
   }
   .search-results.show{display:block;}
@@ -204,7 +215,7 @@
     font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--orange);font-weight:700;
   }
   .sr-text .cat{font-size:11.5px;color:var(--slate);margin-top:1px;}
-  .sr-empty{padding:18px;font-size:13px;color:var(--slate);text-align:center;}
+  .sr-empty{padding:24px;font-size:13px;color:var(--slate);text-align:center;}
 
   /* ===== Map viewport ===== */
   .map-viewport{
@@ -454,8 +465,9 @@
   .idle-toast button{background:var(--orange);color:var(--ink);border:none;padding:7px 13px;border-radius:8px;font-weight:600;font-size:12px;}
 
   /* ===== Scrollbar ===== */
-  ::-webkit-scrollbar{width:7px;}
-  ::-webkit-scrollbar-thumb{background:var(--line);border-radius:8px;}
+  ::-webkit-scrollbar{width:6px;height:6px;}
+  ::-webkit-scrollbar-thumb{background:rgba(32,30,31,.18);border-radius:8px;}
+  ::-webkit-scrollbar-track{background:transparent;}
   :focus-visible{outline:2.5px solid var(--orange);outline-offset:2px;}
 
   /* ================= RESPONSIVE ================= */
@@ -469,6 +481,7 @@
   @media (max-width:768px){
     .map-toolbar{flex-wrap:wrap;}
     .search-shell{flex:1 1 100%;order:9;margin-left:0;max-width:none;margin-top:2px;}
+    .filter-popup{max-height:calc(100dvh - 120px);}
     .map-surface img{width:650px;}
     .zbtn{width:44px;height:44px;font-size:20px;}
     .zbtn-reset{width:auto;padding:0 13px;font-size:12px;}
@@ -480,6 +493,10 @@
     .brand .txt .sub{display:none;}
     .map-surface img{width:550px;}
     .contact-left{flex-direction:column;gap:8px;}
+    .filter-popup{max-height:calc(100dvh - 110px);border-radius:14px;}
+    .fp-chips{max-height:115px;padding:8px 10px;gap:5px;}
+    .fp-chip{padding:5px 9px;font-size:12px;}
+    .fp-rooms-list{padding:4px 8px 42px;}
   }
 
   /* Phone portrait */
@@ -490,6 +507,23 @@
     .map-title .num{font-size:18px;}
     .map-title .name{font-size:13px;}
     .search-box{padding:6px 8px 6px 12px;}
+    .filter-popup{
+      max-height:calc(100dvh - 100px);
+      border-radius:14px;
+    }
+    .fp-header{padding:10px 12px 8px;}
+    .fp-chips{
+      max-height:100px;
+      padding:8px 10px;
+      gap:5px;
+    }
+    .fp-chip{
+      padding:4px 9px;
+      font-size:11px;
+    }
+    .fp-rooms-list{
+      padding:4px 8px 56px; /* High bottom padding so the final rooms are never blocked */
+    }
     .map-viewport{margin:0 8px 6px;border-radius:10px;}
     .map-surface img{width:420px;}
     .room-info-card{bottom:8px;left:8px;padding:8px 10px;max-width:calc(100% - 70px);}
