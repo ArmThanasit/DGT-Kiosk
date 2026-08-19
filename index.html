@@ -13,7 +13,7 @@
 <!-- ============= SVG icon sprite ============= -->
 <svg style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true">
   <defs>
-    <symbol id="icon-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="1.8"/><line x1="15.3" y1="15.3" x2="20.5" y2="20.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="icon-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="1.8"/><line x1="15.3" y1="15.3" x2="20.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
     <symbol id="icon-filter" viewBox="0 0 24 24"><path d="M3 6h18M7 12h10M10 18h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
     <symbol id="icon-book" viewBox="0 0 24 24"><path d="M4 5.5C4 5.5 8 3.6 12 5.5 16 3.6 20 5.5 20 5.5V19C20 19 16 17.1 12 19 8 17.1 4 19 4 19Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M12 5.5V19" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
     <symbol id="icon-flask" viewBox="0 0 24 24"><path d="M9.5 3h5M10.3 3v6.2L5.4 18c-.8 1.4.2 3.2 1.8 3.2h9.6c1.6 0 2.6-1.8 1.8-3.2l-4.9-8.8V3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/><path d="M7.3 15h9.4" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
@@ -27,6 +27,7 @@
     <symbol id="icon-pin" viewBox="0 0 24 24"><path d="M12 2C8.1 2 5 5.2 5 9.1 5 14.3 12 22 12 22s7-7.7 7-12.9C19 5.2 15.9 2 12 2Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="12" cy="9.2" r="2.4" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
     <symbol id="icon-close" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
     <symbol id="icon-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><line x1="12" y1="2" x2="12" y2="6" stroke="currentColor" stroke-width="1.8"/><line x1="12" y1="18" x2="12" y2="22" stroke="currentColor" stroke-width="1.8"/><line x1="2" y1="12" x2="6" y2="12" stroke="currentColor" stroke-width="1.8"/><line x1="18" y1="12" x2="22" y2="12" stroke="currentColor" stroke-width="1.8"/></symbol>
+    <symbol id="icon-check" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
   </defs>
 </svg>
 
@@ -49,7 +50,7 @@
   </header>
 
   <main class="stage">
-    <!-- Toolbar: floor title + search/filter -->
+    <!-- Toolbar: floor title + search + filter toggle button -->
     <div class="map-toolbar">
       <div class="map-title">
         <span class="num" id="floorNum">01</span>
@@ -60,12 +61,35 @@
         <div class="search-box">
           <svg class="ic-svg search-ic" viewBox="0 0 24 24"><use href="#icon-search"></use></svg>
           <input id="globalSearch" type="text" data-i18n-ph="searchPh" placeholder="ค้นหาห้อง เช่น B6105 หรือ ห้องประชุม">
+          <button class="search-clear-btn" id="searchClearBtn" aria-label="ล้างการค้นหา" style="display:none;">
+            <svg class="ic-svg" viewBox="0 0 24 24"><use href="#icon-close"></use></svg>
+          </button>
           <button class="filter-toggle" id="filterToggle" aria-label="กรองหมวดหมู่">
             <svg class="ic-svg" viewBox="0 0 24 24"><use href="#icon-filter"></use></svg>
+            <span class="filter-badge" id="filterBadge" style="display:none;">0</span>
           </button>
         </div>
+
+        <!-- Global search quick results (when typing) -->
         <div class="search-results" id="globalResults"></div>
-        <div class="filter-popup" id="filterPopup"></div>
+
+        <!-- Category Filter Popup (Persistent chips with checkmarks + live rooms list) -->
+        <div class="filter-popup" id="filterPopup">
+          <div class="fp-header">
+            <div class="fp-title">
+              <svg class="ic-svg" style="width:16px;height:16px;" viewBox="0 0 24 24"><use href="#icon-filter"></use></svg>
+              <span data-i18n="filterTitle">เลือกหมวดหมู่</span>
+              <span class="fp-count-tag" id="fpCountTag"></span>
+            </div>
+            <button class="fp-reset-btn" id="fpResetBtn" data-i18n="filterReset">ล้างตัวกรอง</button>
+          </div>
+          <div class="fp-chips" id="filterChips"></div>
+          <div class="fp-divider"></div>
+          <div class="fp-rooms-header">
+            <span id="fpRoomsCount">ห้องทั้งหมด (0)</span>
+          </div>
+          <div class="fp-rooms-list" id="filterRoomsList"></div>
+        </div>
       </div>
     </div>
 
@@ -130,28 +154,30 @@
           <div><span style="font-weight:600;font-size:13.5px;" data-i18n="deptLoc">ศูนย์บริการคอมพิวเตอร์ ชั้น 2</span><div class="dept" data-i18n="deptLocSub">Center for Computer Services</div></div>
         </div>
       </div>
-      <div class="qr-block" id="qrBlock" title="แตะเพื่อดู QR Code ขนาดใหญ่">
-        <img id="qrImg" alt="QR code" src="">
-        <div class="qtxt" data-i18n="qrHint">สแกนเพื่อดูแผนผังนี้บนมือถือของคุณ</div>
+      
+      <!-- Large Standalone Scannable QR Code in Footer -->
+      <div class="qr-block" id="qrBlock" title="แตะเพื่อขยายใหญ่">
+        <div class="qr-img-frame">
+          <img id="qrImg" alt="QR code" src="">
+        </div>
+        <div class="qr-info-side">
+          <div class="qr-main-title" data-i18n="qrTitle">สแกนดูบนมือถือ</div>
+          <div class="qr-sub-text" data-i18n="qrHint">เปิดแผนผังบนโทรศัพท์</div>
+        </div>
       </div>
     </div>
   </footer>
 
-  <!-- QR Code Modal Dialog -->
+  <!-- Minimal & Clean QR Modal Dialog -->
   <div class="qr-modal" id="qrModal" role="dialog" aria-modal="true">
     <div class="qr-modal-backdrop" id="qrModalBackdrop"></div>
     <div class="qr-modal-card">
       <button class="qr-modal-close" id="qrModalClose" aria-label="Close">
-        <svg class="ic-svg" style="width:18px;height:18px;" viewBox="0 0 24 24"><use href="#icon-close"></use></svg>
+        <svg class="ic-svg" style="width:20px;height:20px;" viewBox="0 0 24 24"><use href="#icon-close"></use></svg>
       </button>
-      <div class="qr-modal-title" data-i18n="qrModalTitle">ดูแผนผังบนมือถือ</div>
-      <div class="qr-modal-desc" data-i18n="qrModalDesc">สแกน QR Code ด้วยกล้องมือถือเพื่อเปิดแผนผังชั้นนี้</div>
+      <div class="qr-modal-title" data-i18n="qrModalTitle">สแกนดูบนมือถือ</div>
       <div class="qr-modal-img-wrap">
         <img id="qrModalImg" alt="QR Code Enlarged" src="">
-      </div>
-      <div class="qr-modal-url" id="qrModalUrl"></div>
-      <div class="qr-modal-actions">
-        <button class="qr-action-btn primary" id="qrCopyBtn" data-i18n="qrCopyLink">คัดลอกลิงก์</button>
       </div>
     </div>
   </div>

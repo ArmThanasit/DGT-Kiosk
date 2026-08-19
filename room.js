@@ -1,6 +1,6 @@
 /* =========================================================
    room.js
-   Room data with exact map coordinates, translations, global search, category filter
+   Room data with exact map coordinates, translations, global search, persistent filter popup
    ========================================================= */
 
   var lang = "th";
@@ -16,15 +16,16 @@
     deptMail:     {th:"ฝ่ายบริหารระบบ", en:"System Administration"},
     deptLoc:      {th:"ศูนย์บริการคอมพิวเตอร์ ชั้น 2", en:"Center for Computer Services, 2nd Floor"},
     deptLocSub:   {th:"Center for Computer Services", en:"Center for Computer Services"},
-    qrHint:       {th:"สแกนเพื่อดูแผนผังนี้บนมือถือของคุณ", en:"Scan to view this map on your phone"},
+    qrTitle:      {th:"สแกนดูบนมือถือ", en:"Scan for Mobile"},
+    qrHint:       {th:"เปิดแผนผังบนโทรศัพท์", en:"Open on your phone"},
     idleStay:     {th:"ใช้งานต่อ", en:"Keep using"},
     noResults:    {th:"ไม่พบห้องที่ตรงกัน", en:"No matching rooms found"},
-    filterAll:    {th:"ทั้งหมด", en:"All categories"},
+    filterAll:    {th:"ทั้งหมด", en:"All"},
+    filterTitle:  {th:"เลือกหมวดหมู่ห้อง", en:"Select Categories"},
+    filterReset:  {th:"ล้างตัวกรอง", en:"Reset"},
+    roomsCount:   {th:"ห้อง", en:"rooms"},
     focus:        {th:"โฟกัส", en:"Focus"},
-    qrModalTitle: {th:"ดูแผนผังบนมือถือ", en:"View Map on Mobile"},
-    qrModalDesc:  {th:"สแกน QR Code ด้วยกล้องมือถือเพื่อเปิดแผนผังชั้นนี้", en:"Scan this QR Code with your mobile camera to open this floor map."},
-    qrCopyLink:   {th:"คัดลอกลิงก์", en:"Copy Link"},
-    qrCopied:     {th:"คัดลอกแล้ว!", en:"Copied!"}
+    qrModalTitle: {th:"สแกนดูบนมือถือ", en:"Scan for Mobile"}
   };
 
   /* ================= Categories ================= */
@@ -197,6 +198,165 @@
   };
   var floorOrder = [1,2,3,4,5];
 
+  /* ================= Multi-select Category Filter & Popup ================= */
+  var selectedCategories = []; // Array of active category keys, e.g. ["class", "meeting"]. Empty = All.
+  var filterPopup = document.getElementById("filterPopup");
+  var filterToggle = document.getElementById("filterToggle");
+  var filterChips = document.getElementById("filterChips");
+  var filterBadge = document.getElementById("filterBadge");
+  var fpCountTag = document.getElementById("fpCountTag");
+  var fpResetBtn = document.getElementById("fpResetBtn");
+  var fpRoomsCount = document.getElementById("fpRoomsCount");
+  var filterRoomsList = document.getElementById("filterRoomsList");
+
+  function isCategorySelected(key){
+    return selectedCategories.indexOf(key) !== -1;
+  }
+
+  function renderFilterPopup(){
+    if(!filterChips) return;
+    filterChips.innerHTML = "";
+
+    /* "All" chip */
+    var isAll = selectedCategories.length === 0;
+    var allBtn = document.createElement("button");
+    allBtn.className = "fp-chip" + (isAll ? " is-active" : "");
+    allBtn.innerHTML = (isAll ? '<svg class="fp-check-ic" viewBox="0 0 24 24"><use href="#icon-check"></use></svg>' : '') + dict.filterAll[lang];
+    allBtn.addEventListener("click", function(e){
+      e.stopPropagation();
+      selectedCategories = [];
+      updateFilterState();
+    });
+    filterChips.appendChild(allBtn);
+
+    /* Category chips with checkmarks and colors */
+    Object.keys(categories).forEach(function(key){
+      var active = isCategorySelected(key);
+      var btn = document.createElement("button");
+      btn.className = "fp-chip" + (active ? " is-active" : "");
+      btn.style.setProperty("--cat-color", categories[key].color);
+
+      var checkIcon = active ? '<svg class="fp-check-ic" viewBox="0 0 24 24"><use href="#icon-check"></use></svg>' : '';
+      btn.innerHTML = checkIcon + catIcon(key) + '<span>' + categories[key][lang] + '</span>';
+
+      btn.addEventListener("click", function(e){
+        e.stopPropagation();
+        var idx = selectedCategories.indexOf(key);
+        if(idx !== -1){
+          selectedCategories.splice(idx, 1);
+        } else {
+          selectedCategories.push(key);
+        }
+        updateFilterState();
+      });
+      filterChips.appendChild(btn);
+    });
+
+    updateFilterBadge();
+    renderFilteredRoomsList();
+  }
+
+  function updateFilterBadge(){
+    var count = selectedCategories.length;
+    if(filterBadge){
+      if(count > 0){
+        filterBadge.textContent = count;
+        filterBadge.style.display = "flex";
+      } else {
+        filterBadge.style.display = "none";
+      }
+    }
+    if(filterToggle){
+      filterToggle.classList.toggle("active", count > 0);
+    }
+    if(fpCountTag){
+      fpCountTag.textContent = count > 0 ? "(" + count + ")" : "";
+    }
+  }
+
+  function updateFilterState(){
+    renderFilterPopup();
+    if(gInput && gInput.value.trim()){
+      triggerSearch();
+    }
+  }
+
+  if(fpResetBtn){
+    fpResetBtn.addEventListener("click", function(e){
+      e.stopPropagation();
+      selectedCategories = [];
+      updateFilterState();
+    });
+  }
+
+  function renderFilteredRoomsList(){
+    if(!filterRoomsList) return;
+    filterRoomsList.innerHTML = "";
+
+    var items = allRoomsFlat();
+    if(selectedCategories.length > 0){
+      items = items.filter(function(item){
+        return selectedCategories.indexOf(item.room.cat) !== -1;
+      });
+    }
+
+    if(fpRoomsCount){
+      var countText = lang === "th"
+        ? ("พบ " + items.length + " ห้อง")
+        : ("Found " + items.length + " rooms");
+      fpRoomsCount.textContent = countText;
+    }
+
+    if(items.length === 0){
+      filterRoomsList.innerHTML = '<div class="fp-empty">' + dict.noResults[lang] + '</div>';
+      return;
+    }
+
+    items.forEach(function(item){
+      var row = document.createElement("div");
+      row.className = "fp-room-item";
+      row.tabIndex = 0;
+
+      row.innerHTML =
+        '<div class="fp-room-floor">' + (lang === "th" ? "ชั้น " : "F") + item.floor + '</div>' +
+        '<div class="fp-room-info">' +
+          '<div class="name">' + (item.room.code ? '<span class="code">' + item.room.code + '</span> ' : '') + item.room.name + '</div>' +
+          '<div class="cat">' + catIcon(item.room.cat) + ' ' + categories[item.room.cat][lang] + ' · ' + (lang === "th" ? floors[item.floor].th : floors[item.floor].en) + '</div>' +
+        '</div>' +
+        '<div class="fp-room-go">➔</div>';
+
+      row.addEventListener("click", function(e){
+        e.stopPropagation();
+        if(filterPopup) filterPopup.classList.remove("show");
+        openFloor(item.floor, item.room);
+      });
+
+      filterRoomsList.appendChild(row);
+    });
+  }
+
+  /* Toggle filter popup */
+  if(filterToggle){
+    filterToggle.addEventListener("click", function(e){
+      e.stopPropagation();
+      if(gResults) gResults.classList.remove("show");
+      var isOpen = filterPopup.classList.contains("show");
+      if(!isOpen){
+        renderFilterPopup();
+        filterPopup.classList.add("show");
+      } else {
+        filterPopup.classList.remove("show");
+      }
+    });
+  }
+
+  /* Close filter popup when clicking outside */
+  document.addEventListener("click", function(e){
+    if(filterPopup && filterToggle && !filterPopup.contains(e.target) && !filterToggle.contains(e.target)){
+      filterPopup.classList.remove("show");
+    }
+  });
+
   /* ================= i18n apply ================= */
   function applyI18n(){
     document.documentElement.lang = lang;
@@ -222,6 +382,9 @@
   document.getElementById("langToggle").addEventListener("click", function(){
     lang = lang === "th" ? "en" : "th";
     applyI18n();
+    if(gResults && gResults.classList.contains("show")){
+      triggerSearch();
+    }
   });
 
   function setIdleMessage(seconds){
@@ -230,57 +393,10 @@
     document.getElementById("idleMsgEl").textContent = text + seconds + suffix;
   }
 
-  /* ================= Category filter ================= */
-  var activeFilter = "all";
-  var filterPopup = document.getElementById("filterPopup");
-  var filterToggle = document.getElementById("filterToggle");
-
-  function renderFilterPopup(){
-    if(!filterPopup) return;
-    filterPopup.innerHTML = "";
-    /* "All" chip */
-    var allBtn = document.createElement("button");
-    allBtn.className = "filter-chip" + (activeFilter === "all" ? " active" : "");
-    allBtn.textContent = dict.filterAll[lang];
-    allBtn.addEventListener("click", function(){ setFilter("all"); });
-    filterPopup.appendChild(allBtn);
-    /* Category chips */
-    Object.keys(categories).forEach(function(key){
-      var btn = document.createElement("button");
-      btn.className = "filter-chip" + (activeFilter === key ? " active" : "");
-      btn.innerHTML = catIcon(key) + " " + categories[key][lang];
-      btn.addEventListener("click", function(){ setFilter(key); });
-      filterPopup.appendChild(btn);
-    });
-  }
-
-  function setFilter(cat){
-    activeFilter = cat;
-    if(filterPopup) filterPopup.classList.remove("show");
-    if(filterToggle) filterToggle.classList.toggle("active", cat !== "all");
-    renderFilterPopup();
-    triggerSearch();
-  }
-
-  if(filterToggle){
-    filterToggle.addEventListener("click", function(e){
-      e.stopPropagation();
-      var isOpen = filterPopup.classList.contains("show");
-      if(gResults) gResults.classList.remove("show");
-      filterPopup.classList.toggle("show", !isOpen);
-    });
-  }
-
-  /* Close filter popup when clicking outside */
-  document.addEventListener("click", function(e){
-    if(filterPopup && filterToggle && !filterPopup.contains(e.target) && !filterToggle.contains(e.target)){
-      filterPopup.classList.remove("show");
-    }
-  });
-
-  /* ================= Global search ================= */
+  /* ================= Global text search ================= */
   var gInput = document.getElementById("globalSearch");
   var gResults = document.getElementById("globalResults");
+  var searchClearBtn = document.getElementById("searchClearBtn");
 
   function allRoomsFlat(){
     var out = [];
@@ -293,61 +409,85 @@
   }
 
   function triggerSearch(){
-    if(!gInput || !gResults) return;
-    var q = gInput.value.trim().toLowerCase();
-    var items = allRoomsFlat();
+    if(!gResults) return;
+    var q = gInput ? gInput.value.trim().toLowerCase() : "";
+    if(searchClearBtn) searchClearBtn.style.display = q ? "flex" : "none";
 
-    /* Apply category filter */
-    if(activeFilter !== "all"){
-      items = items.filter(function(item){ return item.room.cat === activeFilter; });
-    }
-
-    /* Apply text search */
-    if(q){
-      items = items.filter(function(item){
-        return (item.room.code+" "+item.room.name).toLowerCase().indexOf(q) !== -1;
-      });
-    }
-
-    /* If no query and no filter, hide results */
-    if(!q && activeFilter === "all"){
-      gResults.classList.remove("show"); gResults.innerHTML = "";
+    if(!q){
+      gResults.classList.remove("show");
+      gResults.innerHTML = "";
       return;
     }
 
-    var matches = items.slice(0,12);
+    var items = allRoomsFlat();
+    if(selectedCategories.length > 0){
+      items = items.filter(function(item){
+        return selectedCategories.indexOf(item.room.cat) !== -1;
+      });
+    }
+
+    items = items.filter(function(item){
+      return (item.room.code+" "+item.room.name).toLowerCase().indexOf(q) !== -1;
+    });
+
     gResults.innerHTML = "";
 
-    if(matches.length === 0){
-      gResults.innerHTML = '<div class="sr-empty">'+dict.noResults[lang]+'</div>';
+    if(items.length === 0){
+      gResults.innerHTML = '<div class="sr-empty">' + dict.noResults[lang] + '</div>';
     } else {
-      matches.forEach(function(item){
+      items.slice(0, 15).forEach(function(item){
         var row = document.createElement("div");
-        row.className = "sr-item"; row.tabIndex = 0;
+        row.className = "sr-item";
+        row.tabIndex = 0;
         row.innerHTML =
-          '<div class="sr-floor">'+item.floor+'</div>' +
-          '<div class="sr-text"><div class="name">'+(item.room.code?item.room.code+" — ":"")+item.room.name+'</div>' +
-          '<div class="cat">'+categories[item.room.cat][lang]+' · '+(lang==="th"?floors[item.floor].th:floors[item.floor].en)+'</div></div>';
+          '<div class="sr-floor">' + (lang === "th" ? "ชั้น " : "F") + item.floor + '</div>' +
+          '<div class="sr-text">' +
+            '<div class="name">' + (item.room.code ? '<span class="code">' + item.room.code + '</span> ' : '') + item.room.name + '</div>' +
+            '<div class="cat">' + categories[item.room.cat][lang] + ' · ' + (lang === "th" ? floors[item.floor].th : floors[item.floor].en) + '</div>' +
+          '</div>';
+
         row.addEventListener("click", function(){
           gResults.classList.remove("show");
-          gInput.value = "";
+          if(gInput) gInput.value = "";
+          if(searchClearBtn) searchClearBtn.style.display = "none";
           openFloor(item.floor, item.room);
         });
         gResults.appendChild(row);
       });
     }
+
     gResults.classList.add("show");
   }
 
   if(gInput){
-    gInput.addEventListener("input", triggerSearch);
-    gInput.addEventListener("keydown", function(e){
-      if(e.key === "Escape"){ gInput.value = ""; if(gResults) gResults.classList.remove("show"); gInput.blur(); }
+    gInput.addEventListener("input", function(){
+      if(filterPopup) filterPopup.classList.remove("show");
+      triggerSearch();
     });
-    gInput.addEventListener("focus", function(){ if(filterPopup) filterPopup.classList.remove("show"); });
+    gInput.addEventListener("keydown", function(e){
+      if(e.key === "Escape"){
+        gInput.value = "";
+        if(searchClearBtn) searchClearBtn.style.display = "none";
+        if(gResults) gResults.classList.remove("show");
+        gInput.blur();
+      }
+    });
+  }
+
+  if(searchClearBtn){
+    searchClearBtn.addEventListener("click", function(){
+      if(gInput){
+        gInput.value = "";
+        searchClearBtn.style.display = "none";
+        if(gResults) gResults.classList.remove("show");
+        gInput.focus();
+      }
+    });
   }
 
   /* Close search results when clicking outside */
   document.addEventListener("click", function(e){
-    if(gResults && gInput && !gResults.contains(e.target) && e.target !== gInput) gResults.classList.remove("show");
+    if(gResults && gInput && !gResults.contains(e.target) && e.target !== gInput){
+      gResults.classList.remove("show");
+    }
   });

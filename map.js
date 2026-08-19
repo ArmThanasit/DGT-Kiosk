@@ -56,7 +56,6 @@
       : (cssWidth * 0.65);
 
     scale = targetScale || 1.35;
-    /* (xPercent, yPercent) relative to center of image */
     var offsetX = (xPercent / 100 - 0.5) * renderW;
     var offsetY = (yPercent / 100 - 0.5) * renderH;
 
@@ -70,7 +69,6 @@
 
   /* Mouse events */
   viewport.addEventListener("mousedown", function(e){
-    /* Check for calibration mode (Ctrl/Alt click) */
     if(e.altKey || e.ctrlKey){
       calibrateClick(e);
       return;
@@ -124,7 +122,7 @@
     resetView();
   });
 
-  /* ================= Calibration Helper (Alt+Click on Map) ================= */
+  /* Calibration helper (Alt+Click on map) */
   function calibrateClick(e){
     var imgEl = document.getElementById("mapImage");
     var rect = imgEl.getBoundingClientRect();
@@ -165,7 +163,6 @@
     var catInfo = categories[room.cat] || { color: "#DF6E37", th: "ห้อง", en: "Room", svg: "pin" };
     var catColor = catInfo.color || "#DF6E37";
 
-    /* Create animated Pin element */
     var pin = document.createElement("div");
     pin.className = "map-pin";
     pin.style.left = x + "%";
@@ -189,7 +186,6 @@
 
     markersContainer.appendChild(pin);
 
-    /* Update Room Info Card */
     if(roomInfoCard){
       ricTitle.textContent = (room.code ? room.code + " — " : "") + room.name;
       ricSub.textContent = (lang === "th" ? floors[currentFloor].th : floors[currentFloor].en) + " · " + (lang === "th" ? "อาคารรัฐสีมาคุณากร" : "Rat Sima Khunakon Building");
@@ -200,7 +196,6 @@
       roomInfoCard.classList.add("show");
     }
 
-    /* Pan and zoom to room position */
     setTimeout(function(){
       focusOnCoordinate(x, y, 1.35);
     }, 100);
@@ -296,16 +291,14 @@
     var target = getKioskTargetUrl(currentFloor);
     var qrImg = document.getElementById("qrImg");
     var qrModalImg = document.getElementById("qrModalImg");
-    var qrModalUrl = document.getElementById("qrModalUrl");
-
-    if(qrModalUrl) qrModalUrl.textContent = target;
 
     try {
       if(typeof QRCode !== "undefined" && QRCode.generateDataURL){
-        var dataUrlSmall = QRCode.generateDataURL(target, 120);
-        var dataUrlLarge = QRCode.generateDataURL(target, 240);
-        if(qrImg) qrImg.src = dataUrlSmall;
-        if(qrModalImg) qrModalImg.src = dataUrlLarge;
+        /* High-res crisp rendering for large footer QR & modal QR */
+        var dataUrlFooter = QRCode.generateDataURL(target, 260);
+        var dataUrlModal = QRCode.generateDataURL(target, 340);
+        if(qrImg) qrImg.src = dataUrlFooter;
+        if(qrModalImg) qrModalImg.src = dataUrlModal;
         return;
       }
     } catch(err) {
@@ -313,9 +306,9 @@
     }
 
     /* Fallback to online API */
-    var fallbackUrl = "https://api.qrserver.com/v1/create-qr-code/?size=160x160&margin=4&data=" + encodeURIComponent(target);
+    var fallbackUrl = "https://api.qrserver.com/v1/create-qr-code/?size=260x260&margin=4&data=" + encodeURIComponent(target);
     if(qrImg) qrImg.src = fallbackUrl;
-    if(qrModalImg) qrModalImg.src = "https://api.qrserver.com/v1/create-qr-code/?size=260x260&margin=6&data=" + encodeURIComponent(target);
+    if(qrModalImg) qrModalImg.src = "https://api.qrserver.com/v1/create-qr-code/?size=340x340&margin=6&data=" + encodeURIComponent(target);
   }
 
   /* QR Modal Dialog Interaction */
@@ -323,7 +316,6 @@
   var qrModal = document.getElementById("qrModal");
   var qrModalClose = document.getElementById("qrModalClose");
   var qrModalBackdrop = document.getElementById("qrModalBackdrop");
-  var qrCopyBtn = document.getElementById("qrCopyBtn");
 
   function openQRModal(){
     updateQR();
@@ -336,21 +328,6 @@
   if(qrBlock) qrBlock.addEventListener("click", openQRModal);
   if(qrModalClose) qrModalClose.addEventListener("click", closeQRModal);
   if(qrModalBackdrop) qrModalBackdrop.addEventListener("click", closeQRModal);
-
-  if(qrCopyBtn){
-    qrCopyBtn.addEventListener("click", function(){
-      var target = getKioskTargetUrl(currentFloor);
-      if(navigator.clipboard && navigator.clipboard.writeText){
-        navigator.clipboard.writeText(target).then(function(){
-          var original = qrCopyBtn.textContent;
-          qrCopyBtn.textContent = dict.qrCopied[lang];
-          setTimeout(function(){ qrCopyBtn.textContent = original; }, 2000);
-        });
-      } else {
-        prompt(lang === "th" ? "คัดลอกลิงก์นี้:" : "Copy this URL:", target);
-      }
-    });
-  }
 
   /* ================= Clock ================= */
   function tickClock(){
